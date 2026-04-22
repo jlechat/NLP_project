@@ -32,15 +32,17 @@ ED_PARTIS = {
     'Mouvement nationaliste révolutionnaire',
     'Faisceaux nationalistes européens',
     'Parti nationaliste français',
-    'Rassemblement des forces nationales'
+    'Rassemblement des forces nationales',
+    "Rassemblement pour les libertés et la patrie", 
+    "Action Française"
 }
 
-def main():
-    print("Hello from nlp-project!")
+# def main():
+#     print("Hello from nlp-project!")
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
 
 check_arbre(PROJECT_ROOT, YEARS, TEXT_FILES_DIR)
 
@@ -61,3 +63,27 @@ df_full = enrich_with_ed_flag(df_all, df_meta, ED_PATH, ED_PARTIS)
 # df_full.to_csv("full_dataset.csv")
 
 df_ed = df_full[df_full["is_ed"]==1]
+
+# ── 6. Visualisation ──────────────────────────────────────────────────────────
+# fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+# colors = ['#2c7bb6', '#d7191c', '#fdae61']
+
+# counts = df_ed['year'].value_counts().sort_index()
+# counts.plot(kind='bar', ax=axes[0], color=colors)
+# axes[0].set_title('Nb de PF extrême droite par année', fontweight='bold')
+# axes[0].set_xlabel('Année') ; axes[0].set_ylabel('Nb documents')
+# axes[0].tick_params(axis='x', rotation=0)
+# for i, v in enumerate(counts):
+#     axes[0].text(i, v + 0.3, str(v), ha='center', fontweight='bold')
+
+# for year, color in zip([1973, 1978, 1981, 1988, 1993], colors):
+#     sub = df_ed[df_ed['year'] == year]['text_length']
+#     if len(sub) > 0:
+#         axes[1].hist(sub, bins=30, alpha=0.6, label=str(year), color=color)
+# axes[1].set_title('Distribution des longueurs de texte', fontweight='bold')
+# axes[1].set_xlabel('Longueur (caractères)') ; axes[1].set_ylabel('Fréquence')
+# axes[1].legend()
+
+# plt.tight_layout()
+# plt.savefig('corpus_overview.png', dpi=150, bbox_inches='tight')
+# plt.show()
