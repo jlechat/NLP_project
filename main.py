@@ -1,7 +1,7 @@
 # imports : 
 from cleaning_data.processing import check_arbre, parse_filename, load_corpus, load_metadata, enrich_with_ed_flag
 import os, re, unicodedata, textwrap
-
+import matplotlib.pyplot as plt
 from pathlib import Path
 import pandas as pd 
 
@@ -59,3 +59,5 @@ df_meta = load_metadata(path = META_PATH)
 df_full = enrich_with_ed_flag(df_all, df_meta, ED_PATH, ED_PARTIS)
 # au cas où : 
 # df_full.to_csv("full_dataset.csv")
+
+df_ed = df_full[df_full["is_ed"]==1]
