@@ -7,6 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 
+import re
+import unicodedata
+
 
 def check_arbre(PROJECT_ROOT, YEARS, TEXT_FILES_DIR): 
 # Affichage de l'arborescence et du nombre de fichiers
@@ -109,8 +112,8 @@ def load_corpus(text_files_dir, years):
 
     return pd.DataFrame(records)
 
-def load_metadata(path = META_PATH) : 
-    df_meta = pd.read_csv(META_PATH, sep=',', encoding='utf-8', low_memory=False)
+def load_metadata(path) : 
+    df_meta = pd.read_csv(path, sep=',', encoding='utf-8', low_memory=False)
 
     print(f"Métadonnées chargées : {len(df_meta)} lignes")
     print(f"Colonnes : {list(df_meta.columns)}\n")
@@ -120,4 +123,70 @@ def load_metadata(path = META_PATH) :
     print(df_meta[['id','titulaire-liste','titulaire-soutien']].head(5).to_string())
     return df_meta
 
+
 # idnetifier les fichiers comme les fichier d'extrême droite : 
+def clean_text(s):
+    """Normalisation : minuscules, sans accents, sans parenthèses et leur contenu."""
+    if pd.isna(s):
+        return ""
+    s = str(s)
+    # On retire le contenu entre parenthèses
+    s = re.sub(r'\(.*?\)', '', s)
+    # On retire les accents
+    s = ''.join(c for c in unicodedata.normalize('NFKD', s)
+                if unicodedata.category(c) != 'Mn')
+    # On nettoie les espaces et la casse
+    s = s.lower().strip()
+    s = re.sub(r'\s+', ' ', s)
+    return s
+
+def get_ed_reference_set(csv_path, initial_dico):
+    """Prépare l'ensemble des partis de référence nettoyés."""
+    try:
+        df_csv = pd.read_csv(csv_path)
+        csv_list = df_csv.iloc[:, 0].tolist()
+    except FileNotFoundError:
+        print(f"Attention : {csv_path} introuvable, utilisation du dico initial uniquement.")
+        csv_list = []
+        
+    full_list = list(initial_dico) + csv_list
+    reference_set = {clean_text(p) for p in full_list if pd.notna(p)}
+    reference_set.discard("")
+    return reference_set
+
+# --- 2. Fonction principale de transformation ---
+
+def enrich_with_ed_flag(df_all, df_meta, csv_path, initial_dico):
+    """
+    Transforme df_all en lui ajoutant les métadonnées et la colonne binaire is_ed.
+    """
+    # A. Création de la colonne 'id' dans df_all (nom_du_doc.txt -> nom_du_doc)
+    # .str[:-4] est très efficace pour retirer les 4 derniers caractères (.txt)
+    df_all['id'] = df_all['filename'].str.replace('.txt', '', regex=False)
+
+    # B. Jointure avec df_meta
+    # On s'assure que df_meta a aussi une colonne 'id'
+    df_final = df_all.merge(df_meta, on='id', how='left')
+
+    # C. Préparation de la référence ED
+    ed_reference = get_ed_reference_set(csv_path, initial_dico)
+
+    # D. Création de la colonne binaire is_ed
+    # On nettoie temporairement pour la comparaison
+    temp_liste = df_final['titulaire-liste'].apply(clean_text)
+    temp_soutien = df_final['titulaire-soutien'].apply(clean_text)
+
+    # Vérification dans le set de référence
+    mask_ref = (temp_liste.isin(ed_reference)) | (temp_soutien.isin(ed_reference))
+    
+    # Sécurité pour les variantes textuelles (Front National, etc.)
+    mask_keywords = (temp_liste.str.contains('front national|parti des forces nouvelles', na=False)) | \
+                    (temp_soutien.str.contains('front national|parti des forces nouvelles', na=False))
+
+    # Attribution de la valeur binaire (1 si ED, 0 sinon)
+    df_final['is_ed'] = (mask_ref | mask_keywords).astype(int)
+
+    print(f"Enrichissement terminé.")
+    print(f"Nombre de documents marqués ED : {df_final['is_ed'].sum()} sur {len(df_final)}")
+    
+    return df_final
