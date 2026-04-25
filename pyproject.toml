@@ -6,13 +6,16 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "bertopic>=0.17.4",
+    "black>=26.3.1",
     "bs4>=0.0.2",
     "ipykernel>=7.2.0",
     "jupyter>=1.1.1",
     "matplotlib>=3.10.8",
     "pandas>=3.0.1",
     "pyldavis>=3.4.1",
+    "pylint>=4.0.5",
     "requests>=2.33.1",
     "scikit-learn>=1.8.0",
+    "seaborn>=0.13.2",
     "spacy>=3.8.14",
 ]
