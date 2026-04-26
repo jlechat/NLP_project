@@ -1,3 +1,6 @@
+"""
+Code fait sur la base de fonctions de Jonas, légérement amélioré. 
+"""
 # imports : 
 from cleaning_data.processing import check_arbre, load_corpus, load_metadata, enrich_with_ed_flag, final_cleaning, stopwords
 from dataviz.visualisation import plot_year_evolution
@@ -35,9 +38,11 @@ ED_PARTIS = {
     'Parti nationaliste français',
     'Rassemblement des forces nationales',
     "Rassemblement pour les libertés et la patrie", 
-    "Action Française"
+    "Action Française", 
+    "Groupe Action Jeunesse", 
+    "Groupe Union Défense"
 }
-NLP = spacy.load('fr_core_news_sm', disable=['parser', 'ner'])
+NLP = spacy.load('fr_core_news_sm', disable=['parser'])
 
 # def main():
 #     print("Hello from nlp-project!")
@@ -65,18 +70,29 @@ df_full = enrich_with_ed_flag(df_all, df_meta, ED_PATH, ED_PARTIS)
 # df_full.to_csv("full_dataset.csv")
 
 df_ed = df_full[df_full["is_ed"]==1]
-plot_year_evolution(df_ed, save = True)
-# ALL_SW = stopwords()
-# df_ed_clean = final_cleaning(df_ed, NLP, ALL_SW)
-# print(df_ed_clean.head())
+plot_year_evolution(df_ed)
+ALL_SW = stopwords()
+df_ed_clean = final_cleaning(df_ed, NLP, ALL_SW)
+print(df_ed_clean.head())
 
-# row = df_ed_clean.iloc[0]
+row = df_ed_clean.iloc[0]
 
-# print(f"\n--- Exemple ({row['filename']}) ---")
-# print("ORIGINAL :")
-# print(textwrap.fill(row['text'][:400], 90))
-# print("\nAPRÈS NETTOYAGE + LEMMATISATION :")
-# print(textwrap.fill(row['text_lemmatized'][:400], 90))
+print(f"\n--- Exemple ({row['filename']}) ---")
+print("ORIGINAL :")
+print(textwrap.fill(row['text'][:400], 90))
+print("\nAPRÈS NETTOYAGE + LEMMATISATION :")
+print(textwrap.fill(row['text_lemmatized'][:400], 90))
 
-# df_ed_clean.to_csv("cleaned_data.csv")
+df_ed_clean.to_csv("cleaned_data.csv")
 
+# LDA - detection du nb optimal 
+
+
+# LDA - génération de topics et visualistion 
+
+
+
+# NMF trouver le bon nb k 
+
+
+# NMF - topics et visualisation 
