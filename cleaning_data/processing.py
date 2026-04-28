@@ -1,7 +1,7 @@
 import os, re, unicodedata, textwrap
 from pathlib import Path
 from collections import Counter
-
+import spacy 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -160,23 +160,23 @@ def enrich_with_ed_flag(df_all, df_meta, csv_path, initial_dico):
     """
     Transforme df_all en lui ajoutant les métadonnées et la colonne binaire is_ed.
     """
-    # A. Création de la colonne 'id' dans df_all (nom_du_doc.txt -> nom_du_doc)
+    # création de la colonne 'id' dans df_all (nom_du_doc.txt -> nom_du_doc)
     # .str[:-4] est très efficace pour retirer les 4 derniers caractères (.txt)
     df_all['id'] = df_all['filename'].str.replace('.txt', '', regex=False)
 
-    # B. Jointure avec df_meta
+    # Jointure avec df_meta
     # On s'assure que df_meta a aussi une colonne 'id'
     df_final = df_all.merge(df_meta, on='id', how='left')
 
-    # C. Préparation de la référence ED
+    # Préparation de la référence ED - merge du csv scrapé et de la liste à la mano 
     ed_reference = get_ed_reference_set(csv_path, initial_dico)
 
-    # D. Création de la colonne binaire is_ed
+    #  Création de la colonne binaire is_ed
     # On nettoie temporairement pour la comparaison
     temp_liste = df_final['titulaire-liste'].apply(clean_text)
     temp_soutien = df_final['titulaire-soutien'].apply(clean_text)
 
-    # Vérification dans le set de référence
+    #  verification dans le set de référence
     mask_ref = (temp_liste.isin(ed_reference)) | (temp_soutien.isin(ed_reference))
     
     # Sécurité pour les variantes textuelles (Front National, etc.)
@@ -190,3 +190,86 @@ def enrich_with_ed_flag(df_all, df_meta, csv_path, initial_dico):
     print(f"Nombre de documents marqués ED : {df_final['is_ed'].sum()} sur {len(df_final)}")
     
     return df_final
+
+
+def clean_ocr(text):
+    """
+    Nettoyage des artefacts spécifiques aux professions de foi Archelec numérisées.
+    """
+    # 1. Suppression des éléments  "Sciences Po / CEVIPOF"
+    text = re.sub(r'sciences\s*po\s*/\s*fonds\s*cevipof', ' ', text, flags=re.I)
+    text = re.sub(r'sciences\s*po', ' ', text, flags=re.I)
+    text = re.sub(r'fonds\s*cevipof', ' ', text, flags=re.I)
+
+    # 2. Suppression des symboles de cases à cocher
+    text = re.sub(r'[☐□▢▪▫◻◼■●]', ' ', text)
+
+    # 3. Suppressions des lignes de séparation graphique
+    text = re.sub(r'[-=_*·]{3,}', ' ', text)
+
+    # 4. Suppression des mentions d'imprimerie en fin de ligne
+    text = re.sub(r'\bIMP[_\s][\w\s\.]+', ' ', text, flags=re.I)
+    text = re.sub(r'\bIMPRIME[RIE\s]+[\w\s\.]+', ' ', text, flags=re.I)
+    text = re.sub(r'\bPAPIER\s+R[EÉ]CUP[EÉ]R[EÉ][\w\s]+', ' ', text, flags=re.I)
+
+    # 5. Suppression des numéros de page isolés
+    text = re.sub(r'^\s*\d{1,2}\s*$', '', text, flags=re.M)
+
+    # 6. Suppression des caractères non imprimables (sauf newline)
+    text = ''.join(c for c in text
+                   if unicodedata.category(c)[0] != 'C' or c == '\n')
+
+    # 7. Suppression des espaces multiples
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
+# Stopwords 
+
+def stopwords(stopword_path="data/stopwords.csv", spacy_mod="fr_core_news_sm"): 
+
+    nlp = spacy.load(spacy_mod, disable=['parser'])
+
+    # on récupère les stop words
+    SW_SPACY = set(nlp.Defaults.stop_words)
+
+    df = pd.read_csv(stopword_path)
+
+    SW_CSV = set(df.iloc[:, 0].astype(str).str.strip().str.lower())
+
+    ALL_SW = SW_SPACY | SW_CSV
+
+    return ALL_SW
+
+
+def lemmatize(text, nlp, stopwords, mode='lemma'):
+    doc = nlp(text[:100_000])
+    
+    if mode == 'ner':
+        # On extrait uniquement les entités nommées (en minuscules)
+        return ' '.join([ent.text.lower() for ent in doc.ents if ent.label_ in ['PER', 'LOC', 'ORG']])
+    
+    # Mode par défaut : lemmatisation classique
+    return ' '.join(
+        tok.lemma_.lower()
+        for tok in doc
+        if tok.is_alpha
+        and not tok.is_stop
+        and not tok.is_punct
+        and len(tok.lemma_) >= 3
+        and tok.lemma_.lower() not in stopwords
+    )
+
+
+def final_cleaning(df_ed, nlp, stopwords):
+    df_ed['text_clean'] = df_ed['text'].apply(clean_ocr)
+
+    print(f"Traitement de {len(df_ed)} documents...")
+    
+    # Génération de la colonne Lemmes
+    df_ed['text_lemmatized'] = [
+        lemmatize(t, nlp, stopwords, mode='lemma') for t in df_ed['text_clean']
+    ]
+    
+
+    return df_ed
