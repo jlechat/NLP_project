@@ -10,6 +10,7 @@ dependencies = [
     "bs4>=0.0.2",
     "ipykernel>=7.2.0",
     "jupyter>=1.1.1",
+    "kaleido>=1.2.0",
     "matplotlib>=3.10.8",
     "pandas>=3.0.1",
     "pyldavis>=3.4.1",
